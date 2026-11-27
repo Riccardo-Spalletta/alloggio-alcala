@@ -3331,7 +3331,6 @@ const CONFIGURED_API_BASE = "https://alloggi-api.rikspa14.workers.dev";
     { id: "Blu", hex: "#2563eb" },
     { id: "Rosa", hex: "#ec4899" },
     { id: "Viola", hex: "#7c3aed" },
-    { id: "Turchese", hex: "#0d9488" },
     { id: "Arancione", hex: "#ea580c" },
     { id: "Verde", hex: "#16a34a" }
   ];
@@ -3818,7 +3817,7 @@ const CONFIGURED_API_BASE = "https://alloggi-api.rikspa14.workers.dev";
 
   function buildPinHtml(item) {
     const { color: pinColor } = getPlatformMeta(item.platform);
-    const { avgStars, stars, state, isVisibleFav } = getReview(item.id);
+    const { avgStars, stars, state, isVisibleFav, visibleEntries } = getReview(item.id);
     const starColor = getStarColor(stars);
     const pinLabel = avgStars > 0 ? String(avgStars) : "–";
     const pinFontSize = pinLabel.length > 1 ? "9.2" : "11.5";
@@ -3826,15 +3825,37 @@ const CONFIGURED_API_BASE = "https://alloggi-api.rikspa14.workers.dev";
     const isHidden = (state === "hidden");
     const ringStroke = stars > 0 ? `stroke="${starColor}" stroke-width="1.3"` : "";
     const medalHtml = isVisibleFav ? `<div class="pin-medal-badge">🏅</div>` : "";
+    const ratedVoters = (visibleEntries || []).filter(e => e.stars > 0);
+    let circleDefs = "";
+    let circleFill = "#ffffff";
+    if (avgStars > 0) {
+      if (viewColor !== "ALL") {
+        circleFill = getReviewerColorMeta(viewColor).hex;
+      } else if (ratedVoters.length === 1) {
+        circleFill = ratedVoters[0].colorHex;
+      } else if (ratedVoters.length > 1) {
+        const gradId = `pin-grad-${item.id.replace(/[^a-zA-Z0-9_-]/g, "")}`;
+        const n = ratedVoters.length;
+        const stops = ratedVoters.map((v, idx) => {
+          const p0 = Math.round((idx / n) * 100);
+          const p1 = Math.round(((idx + 1) / n) * 100);
+          return `<stop offset="${p0}%" stop-color="${v.colorHex}"/><stop offset="${p1}%" stop-color="${v.colorHex}"/>`;
+        }).join("");
+        circleDefs = `<defs><linearGradient id="${gradId}" x1="0%" y1="0%" x2="100%" y2="100%">${stops}</linearGradient></defs>`;
+        circleFill = `url(#${gradId})`;
+      }
+    }
+    const textOutline = avgStars > 0 ? `paint-order="stroke" stroke="#ffffff" stroke-width="2.6" stroke-linejoin="round"` : "";
     return `
       <div class="apple-pin-offset" id="pin-offset-${item.id}">
         <div class="apple-pin-wrap ${isSelected ? 'selected' : ''} ${isHidden ? 'is-hidden' : ''}" id="pin-marker-${item.id}" style="position:relative;">
           ${medalHtml}
           <svg width="30" height="40" viewBox="0 0 30 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+            ${circleDefs}
             <ellipse cx="15" cy="38" rx="5.5" ry="1.8" fill="rgba(0,0,0,0.3)"/>
             <path d="M 15 2 C 7.82 2 2 7.82 2 15 C 2 24.5 15 37.5 15 37.5 C 15 37.5 28 24.5 28 15 C 28 7.82 22.18 2 15 2 Z" fill="${pinColor}" stroke="#ffffff" stroke-width="2" stroke-linejoin="round"/>
-            <circle cx="15" cy="15" r="7.5" fill="#ffffff" ${ringStroke}/>
-            <text x="15" y="15" font-size="${pinFontSize}" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif" font-weight="900" fill="${starColor}" text-anchor="middle" dominant-baseline="central">${pinLabel}</text>
+            <circle cx="15" cy="15" r="7.5" fill="${circleFill}" ${ringStroke}/>
+            <text x="15" y="15" font-size="${pinFontSize}" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif" font-weight="900" fill="${starColor}" ${textOutline} text-anchor="middle" dominant-baseline="central">${pinLabel}</text>
           </svg>
         </div>
       </div>
