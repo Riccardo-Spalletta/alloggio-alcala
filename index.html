@@ -3447,8 +3447,12 @@ const CONFIGURED_API_BASE = "https://alloggi-api.rikspa14.workers.dev";
   function getBaseZIndex(id) {
     if (id === activeListingId) return 3000;
     const r = getReview(id);
-    if (r.state === "hidden") return 600;
-    return r.isVisibleFav ? 1600 : 1200;
+    if (r.state === "hidden") return 500;
+    const favBonus = r.isVisibleFav ? 50 : 0;
+    const stars = Number(r.avgStars) || 0;
+    if (stars > 3) return 2000 + Math.round(stars * 100) + favBonus;
+    if (stars <= 0) return 1500 + favBonus;
+    return 1000 + Math.round(stars * 100) + favBonus;
   }
 
   function getStarColor(stars) {
