@@ -1345,23 +1345,39 @@ svg.leaflet-image-layer.leaflet-interactive path {
       transform: translateX(-50%);
       z-index: 1200;
       display: flex;
+      flex-direction: column;
       align-items: center;
-      gap: 6px;
+      gap: 3px;
       padding: 6px 12px;
-      background: rgba(255, 255, 255, 0.90);
+      background: rgba(255, 255, 255, 0.92);
       backdrop-filter: blur(18px) saturate(180%);
       -webkit-backdrop-filter: blur(18px) saturate(180%);
       border: 1px solid rgba(0, 0, 0, 0.08);
-      border-radius: 999px;
+      border-radius: 16px;
       box-shadow: 0 6px 22px rgba(0, 0, 0, 0.14);
       max-width: calc(100vw - 24px);
-      overflow-x: auto;
-      scrollbar-width: none;
     }
-    .top-view-bar::-webkit-scrollbar { display: none; }
+    .top-view-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: nowrap;
+      white-space: nowrap;
+    }
+    .top-view-sub {
+      font-size: 10px;
+      line-height: 1.1;
+      color: #6e6e73;
+      font-weight: 500;
+      letter-spacing: 0.01em;
+    }
+    .top-view-bar .sync-status-pill {
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
     @media (max-width: 768px) {
       .top-view-bar {
-        top: 10px;
+        top: 56px;
         padding: 5px 10px;
       }
     }
@@ -3320,10 +3336,13 @@ const CONFIGURED_API_BASE = "https://alloggi-api.rikspa14.workers.dev";
       : `<span class="sync-status-pill offline" title="File locale offline">💾 Locale</span>`;
     if (topBar) {
       topBar.innerHTML = `
-        <span class="reviewer-bar-lbl">Mostra:</span>
-        ${viewSwatchesHtml}
-        <button type="button" class="view-all-btn ${viewColor === 'ALL' ? 'active' : ''}" onclick="setViewColor('ALL')" title="Mostra la media di tutti i colori">Tutti</button>
-        ${syncBadge}
+        <div class="top-view-row">
+          <span class="reviewer-bar-lbl">Mostra:</span>
+          ${viewSwatchesHtml}
+          <button type="button" class="view-all-btn ${viewColor === 'ALL' ? 'active' : ''}" onclick="setViewColor('ALL')" title="Mostra la media di tutti i colori">Tutti</button>
+          ${syncBadge}
+        </div>
+        <div class="top-view-sub">colore di voti nella mappa</div>
       `;
     }
 
