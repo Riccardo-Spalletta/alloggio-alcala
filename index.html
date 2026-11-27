@@ -2270,6 +2270,11 @@ svg.leaflet-image-layer.leaflet-interactive path {
     }
     .leaderboard-fab-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18); }
     .leaderboard-fab-btn:active { transform: scale(0.97); }
+    .leaderboard-fab-btn.active {
+      background: #007aff;
+      color: #ffffff;
+      border-color: #007aff;
+    }
     @media (max-width: 768px) {
       .leaderboard-fab-btn {
         top: 116px;
@@ -2279,29 +2284,32 @@ svg.leaflet-image-layer.leaflet-interactive path {
       }
     }
 
-    .leaderboard-modal {
+    .leaderboard-panel {
       position: fixed;
-      inset: 0;
-      z-index: 2600;
-      background: rgba(0, 0, 0, 0.42);
-      backdrop-filter: blur(6px);
-      -webkit-backdrop-filter: blur(6px);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 16px;
-    }
-    .leaderboard-modal.hidden { display: none; }
-    .leaderboard-card {
-      width: 100%;
-      max-width: 470px;
-      max-height: 82vh;
-      background: #ffffff;
-      border-radius: 20px;
-      box-shadow: 0 22px 54px rgba(0, 0, 0, 0.28);
+      top: 102px;
+      right: 16px;
+      z-index: 1250;
+      width: 340px;
+      max-width: calc(100vw - 24px);
+      max-height: calc(100vh - 120px);
+      background: rgba(255, 255, 255, 0.96);
+      backdrop-filter: blur(20px) saturate(180%);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      border: 1px solid rgba(0, 0, 0, 0.09);
+      border-radius: 18px;
+      box-shadow: 0 14px 38px rgba(0, 0, 0, 0.22);
       display: flex;
       flex-direction: column;
       overflow: hidden;
+    }
+    .leaderboard-panel.hidden { display: none; }
+    @media (max-width: 768px) {
+      .leaderboard-panel {
+        top: 152px;
+        right: 12px;
+        width: 310px;
+        max-height: 44vh;
+      }
     }
     .leaderboard-header {
       display: flex;
@@ -2785,20 +2793,18 @@ svg.leaflet-image-layer.leaflet-interactive path {
     </div>
 
     <!-- Right Floating Leaderboard Button -->
-    <button id="leaderboard-fab-btn" class="leaderboard-fab-btn" type="button" onclick="openLeaderboardModal()" title="Classifica dei voti più alti">🏆 Classifica</button>
+    <button id="leaderboard-fab-btn" class="leaderboard-fab-btn" type="button" onclick="toggleLeaderboardPanel()" title="Mostra o nascondi classifica">🏆 Classifica</button>
 
-    <!-- Leaderboard Modal -->
-    <div id="leaderboard-modal" class="leaderboard-modal hidden" onclick="closeLeaderboardModal(event)">
-      <div class="leaderboard-card" onclick="event.stopPropagation()">
-        <div class="leaderboard-header">
-          <div>
-            <h3 class="leaderboard-title">🏆 Classifica Voti</h3>
-            <div class="leaderboard-sub">Media di tutti i voti dati (preferita 🏅 = +0,5)</div>
-          </div>
-          <button type="button" class="leaderboard-close" onclick="closeLeaderboardModal()" aria-label="Chiudi">✕</button>
+    <!-- Docked Right Leaderboard Window -->
+    <div id="leaderboard-modal" class="leaderboard-panel hidden">
+      <div class="leaderboard-header">
+        <div>
+          <h3 class="leaderboard-title">🏆 Classifica Voti</h3>
+          <div class="leaderboard-sub">Media di tutti i voti dati (preferita 🏅 = +0,5)</div>
         </div>
-        <div id="leaderboard-list" class="leaderboard-list"></div>
+        <button type="button" class="leaderboard-close" onclick="closeLeaderboardModal()" aria-label="Chiudi">✕</button>
       </div>
+      <div id="leaderboard-list" class="leaderboard-list"></div>
     </div>
 
     <!-- Floating Top Route Pill Bar -->
@@ -3428,6 +3434,10 @@ const CONFIGURED_API_BASE = "https://alloggi-api.rikspa14.workers.dev";
       const item = listingsData.find(i => i.id === activeListingId);
       if (item) renderDetailView(item);
     }
+    const lbPanel = document.getElementById("leaderboard-modal");
+    if (lbPanel && !lbPanel.classList.contains("hidden")) {
+      renderLeaderboardList();
+    }
   }
 
   async function fetchSharedReviews(isInitial = false) {
@@ -3612,10 +3622,9 @@ const CONFIGURED_API_BASE = "https://alloggi-api.rikspa14.workers.dev";
     return items;
   }
 
-  function openLeaderboardModal() {
-    const modal = document.getElementById("leaderboard-modal");
+  function renderLeaderboardList() {
     const listEl = document.getElementById("leaderboard-list");
-    if (!modal || !listEl) return;
+    if (!listEl) return;
     const ranked = computeLeaderboardItems();
     if (ranked.length === 0) {
       listEl.innerHTML = `<div style="padding:24px;text-align:center;color:#6e6e73;font-size:13px;">Nessun voto registrato finora.</div>`;
@@ -3649,18 +3658,31 @@ const CONFIGURED_API_BASE = "https://alloggi-api.rikspa14.workers.dev";
         `;
       }).join("");
     }
-    modal.classList.remove("hidden");
   }
 
-  function closeLeaderboardModal(event) {
-    if (event && event.target && event.target.id !== "leaderboard-modal") return;
-    const modal = document.getElementById("leaderboard-modal");
-    if (modal) modal.classList.add("hidden");
+  function toggleLeaderboardPanel() {
+    const panel = document.getElementById("leaderboard-modal");
+    const btn = document.getElementById("leaderboard-fab-btn");
+    if (!panel) return;
+    const isHidden = panel.classList.contains("hidden");
+    if (isHidden) {
+      renderLeaderboardList();
+      panel.classList.remove("hidden");
+      if (btn) btn.classList.add("active");
+    } else {
+      panel.classList.add("hidden");
+      if (btn) btn.classList.remove("active");
+    }
+  }
+
+  function closeLeaderboardModal() {
+    const panel = document.getElementById("leaderboard-modal");
+    const btn = document.getElementById("leaderboard-fab-btn");
+    if (panel) panel.classList.add("hidden");
+    if (btn) btn.classList.remove("active");
   }
 
   function pickLeaderboardListing(id) {
-    const modal = document.getElementById("leaderboard-modal");
-    if (modal) modal.classList.add("hidden");
     selectListing(id, true);
   }
 
