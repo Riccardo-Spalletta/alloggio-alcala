@@ -1338,6 +1338,33 @@ svg.leaflet-image-layer.leaflet-interactive path {
       align-items: stretch;
       gap: 6px;
     }
+    .top-view-bar {
+      position: fixed;
+      top: 14px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 1200;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      background: rgba(255, 255, 255, 0.90);
+      backdrop-filter: blur(18px) saturate(180%);
+      -webkit-backdrop-filter: blur(18px) saturate(180%);
+      border: 1px solid rgba(0, 0, 0, 0.08);
+      border-radius: 999px;
+      box-shadow: 0 6px 22px rgba(0, 0, 0, 0.14);
+      max-width: calc(100vw - 24px);
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .top-view-bar::-webkit-scrollbar { display: none; }
+    @media (max-width: 768px) {
+      .top-view-bar {
+        top: 10px;
+        padding: 5px 10px;
+      }
+    }
     .reviewer-row-line {
       display: flex;
       align-items: center;
@@ -2568,6 +2595,9 @@ svg.leaflet-image-layer.leaflet-interactive path {
     <!-- Map Canvas -->
     <div id="map"></div>
 
+    <!-- Top Floating Color View Selector -->
+    <div id="top-view-bar" class="top-view-bar"></div>
+
     <!-- Map Mode Switcher (Apple Segmented Style - Default Satellite) -->
     <div class="map-controls-top">
       <div class="apple-segmented">
@@ -3280,26 +3310,30 @@ const CONFIGURED_API_BASE = "https://alloggi-api.rikspa14.workers.dev";
   }
 
   function renderReviewerBar() {
-    const bar = document.getElementById("reviewer-bar");
-    if (!bar) return;
+    const topBar = document.getElementById("top-view-bar");
     const viewSwatchesHtml = REVIEW_COLORS.map(c => {
       const isAct = (viewColor === c.id);
-      return `<button type="button" class="color-swatch ${isAct ? 'active' : ''}" style="background:${c.hex}" title="Vedi voti ${c.id}" onclick="setViewColor('${c.id}')">${isAct ? '✓' : ''}</button>`;
-    }).join("");
-    const voteSwatchesHtml = REVIEW_COLORS.map(c => {
-      const isAct = (activeReviewer === c.id);
-      return `<button type="button" class="color-swatch ${isAct ? 'active' : ''}" style="background:${c.hex}" title="Vota come ${c.id}" onclick="setActiveReviewer('${c.id}')">${isAct ? '✓' : ''}</button>`;
+      return `<button type="button" class="color-swatch ${isAct ? 'active' : ''}" style="background:${c.hex}" title="Mostra voti ${c.id}" onclick="setViewColor('${c.id}')">${isAct ? '✓' : ''}</button>`;
     }).join("");
     const syncBadge = HAS_REMOTE_API
       ? `<span class="sync-status-pill" title="Sincronizzato dal vivo per tutti">🟢 Live</span>`
       : `<span class="sync-status-pill offline" title="File locale offline">💾 Locale</span>`;
-    bar.innerHTML = `
-      <div class="reviewer-row-line">
-        <span class="reviewer-bar-lbl">Vedi:</span>
+    if (topBar) {
+      topBar.innerHTML = `
+        <span class="reviewer-bar-lbl">Mostra:</span>
         ${viewSwatchesHtml}
         <button type="button" class="view-all-btn ${viewColor === 'ALL' ? 'active' : ''}" onclick="setViewColor('ALL')" title="Mostra la media di tutti i colori">Tutti</button>
         ${syncBadge}
-      </div>
+      `;
+    }
+
+    const bar = document.getElementById("reviewer-bar");
+    if (!bar) return;
+    const voteSwatchesHtml = REVIEW_COLORS.map(c => {
+      const isAct = (activeReviewer === c.id);
+      return `<button type="button" class="color-swatch ${isAct ? 'active' : ''}" style="background:${c.hex}" title="Vota come ${c.id}" onclick="setActiveReviewer('${c.id}')">${isAct ? '✓' : ''}</button>`;
+    }).join("");
+    bar.innerHTML = `
       <div class="reviewer-row-line">
         <span class="reviewer-bar-lbl" id="reviewer-pick-hint">${activeReviewer ? 'Vota:' : 'Scegli voto:'}</span>
         ${voteSwatchesHtml}
