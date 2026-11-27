@@ -1333,6 +1333,66 @@ svg.leaflet-image-layer.leaflet-interactive path {
       vertical-align: middle;
       box-shadow: 0 0 0 1px rgba(0,0,0,0.12);
     }
+    .reviewer-bar {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 6px;
+    }
+    .reviewer-row-line {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .view-all-btn {
+      border: 1px solid var(--border-light);
+      background: #ffffff;
+      color: var(--text-secondary);
+      border-radius: var(--radius-pill);
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 8px;
+      cursor: pointer;
+      transition: all 0.14s ease;
+    }
+    .view-all-btn.active {
+      background: #1d1d1f;
+      border-color: #1d1d1f;
+      color: #ffffff;
+    }
+    .medal-btn {
+      border: 1px solid var(--border-light);
+      background: #ffffff;
+      border-radius: var(--radius-pill);
+      font-size: 13px;
+      line-height: 1;
+      padding: 3px 7px;
+      cursor: pointer;
+      opacity: 0.55;
+      filter: grayscale(85%);
+      transition: transform 0.14s ease, opacity 0.14s ease, background 0.14s ease;
+    }
+    .medal-btn:hover {
+      opacity: 0.9;
+      filter: grayscale(20%);
+      transform: scale(1.1);
+    }
+    .medal-btn.active {
+      opacity: 1;
+      filter: none;
+      background: #fef3c7;
+      border-color: #f59e0b;
+      box-shadow: 0 1px 4px rgba(245, 158, 11, 0.35);
+    }
+    .pin-medal-badge {
+      position: absolute;
+      top: -6px;
+      right: -6px;
+      font-size: 13px;
+      line-height: 1;
+      filter: drop-shadow(0 1px 2px rgba(0,0,0,0.5));
+      pointer-events: none;
+    }
     .reviewer-bar.needs-pick {
       animation: pulseRing 0.9s ease 2;
       border-color: var(--accent-blue);
@@ -3033,6 +3093,7 @@ const CONFIGURED_API_BASE = "https://alloggi-api.rikspa14.workers.dev";
   const STORAGE_KEY = "alcala_alloggi_reviews_v2";
   const LEGACY_STORAGE_KEY = "alcala_alloggi_reviews_v1";
   const REVIEWER_KEY = "alcala_active_reviewer_v2";
+  const VIEW_COLOR_KEY = "alcala_view_color_v1";
   const API_BASE = (typeof CONFIGURED_API_BASE === "string" && CONFIGURED_API_BASE) ? CONFIGURED_API_BASE : "";
   const HAS_REMOTE_API = Boolean(API_BASE) || (window.location.hostname === "127.0.0.1" || window.location.hostname === "localhost" || window.location.hostname.endsWith(".trycloudflare.com"));
   const REVIEW_COLORS = [
@@ -3055,10 +3116,17 @@ const CONFIGURED_API_BASE = "https://alloggi-api.rikspa14.workers.dev";
       return (saved === "Riccardo") ? "Blu" : saved;
     } catch (e) { return ""; }
   })();
+  let viewColor = (function() {
+    try {
+      const saved = (localStorage.getItem(VIEW_COLOR_KEY) || "Blu").trim();
+      return (saved === "Riccardo") ? "Blu" : (saved || "Blu");
+    } catch (e) { return "Blu"; }
+  })();
   let userReviews = loadUserReviews();
   let lastReviewsSignature = JSON.stringify(userReviews);
   let draftNewStars = {};
   let draftNewColor = {};
+  let draftNewFav = {};
   let activeClusterIds = [];
   let activeClusterCentroid = null;
   let activeClusterRadius = 60;
@@ -3079,15 +3147,16 @@ const CONFIGURED_API_BASE = "https://alloggi-api.rikspa14.workers.dev";
           if (!cleanName || !rev || typeof rev !== "object") return;
           const st = Math.max(0, Math.min(5, Number(rev.stars) || 0));
           const cm = String(rev.comment || "").slice(0, 2000);
-          if (st > 0 || cm.trim()) {
-            reviewsMap[cleanName] = { stars: st, comment: cm, updatedAt: rev.updatedAt || "" };
+          const fav = Boolean(rev.favorite);
+          if (st > 0 || cm.trim() || fav) {
+            reviewsMap[cleanName] = { stars: st, comment: cm, favorite: fav, updatedAt: rev.updatedAt || "" };
           }
         });
       } else {
         const st = Math.max(0, Math.min(5, Number(val.stars) || 0));
         const cm = String(val.comment || "").slice(0, 2000);
         if (st > 0 || cm.trim()) {
-          reviewsMap["Blu"] = { stars: st, comment: cm, updatedAt: "" };
+          reviewsMap["Blu"] = { stars: st, comment: cm, favorite: false, updatedAt: "" };
         }
       }
       if (Object.keys(reviewsMap).length > 0 || state !== "active") {
@@ -3191,6 +3260,12 @@ const CONFIGURED_API_BASE = "https://alloggi-api.rikspa14.workers.dev";
     refreshAllVisibleUi();
   }
 
+  function setViewColor(colorId) {
+    viewColor = String(colorId || "Blu").trim() || "Blu";
+    try { localStorage.setItem(VIEW_COLOR_KEY, viewColor); } catch (e) {}
+    refreshAllVisibleUi();
+  }
+
   function ensureActiveReviewer() {
     if (activeReviewer) return activeReviewer;
     const bar = document.getElementById("reviewer-bar");
@@ -3199,7 +3274,7 @@ const CONFIGURED_API_BASE = "https://alloggi-api.rikspa14.workers.dev";
       void bar.offsetWidth;
       bar.classList.add("needs-pick");
       const hint = document.getElementById("reviewer-pick-hint");
-      if (hint) hint.textContent = "Scegli un colore:";
+      if (hint) hint.textContent = "Scegli colore voto:";
     }
     return "";
   }
@@ -3207,17 +3282,28 @@ const CONFIGURED_API_BASE = "https://alloggi-api.rikspa14.workers.dev";
   function renderReviewerBar() {
     const bar = document.getElementById("reviewer-bar");
     if (!bar) return;
-    const swatchesHtml = REVIEW_COLORS.map(c => {
+    const viewSwatchesHtml = REVIEW_COLORS.map(c => {
+      const isAct = (viewColor === c.id);
+      return `<button type="button" class="color-swatch ${isAct ? 'active' : ''}" style="background:${c.hex}" title="Vedi voti ${c.id}" onclick="setViewColor('${c.id}')">${isAct ? '✓' : ''}</button>`;
+    }).join("");
+    const voteSwatchesHtml = REVIEW_COLORS.map(c => {
       const isAct = (activeReviewer === c.id);
-      return `<button type="button" class="color-swatch ${isAct ? 'active' : ''}" style="background:${c.hex}" title="${c.id}" onclick="setActiveReviewer('${c.id}')">${isAct ? '✓' : ''}</button>`;
+      return `<button type="button" class="color-swatch ${isAct ? 'active' : ''}" style="background:${c.hex}" title="Vota come ${c.id}" onclick="setActiveReviewer('${c.id}')">${isAct ? '✓' : ''}</button>`;
     }).join("");
     const syncBadge = HAS_REMOTE_API
       ? `<span class="sync-status-pill" title="Sincronizzato dal vivo per tutti">🟢 Live</span>`
       : `<span class="sync-status-pill offline" title="File locale offline">💾 Locale</span>`;
     bar.innerHTML = `
-      <span class="reviewer-bar-lbl" id="reviewer-pick-hint">${activeReviewer ? 'Colore:' : 'Scegli colore:'}</span>
-      ${swatchesHtml}
-      ${syncBadge}
+      <div class="reviewer-row-line">
+        <span class="reviewer-bar-lbl">Vedi:</span>
+        ${viewSwatchesHtml}
+        <button type="button" class="view-all-btn ${viewColor === 'ALL' ? 'active' : ''}" onclick="setViewColor('ALL')" title="Mostra la media di tutti i colori">Tutti</button>
+        ${syncBadge}
+      </div>
+      <div class="reviewer-row-line">
+        <span class="reviewer-bar-lbl" id="reviewer-pick-hint">${activeReviewer ? 'Vota:' : 'Scegli voto:'}</span>
+        ${voteSwatchesHtml}
+      </div>
     `;
   }
 
@@ -3236,37 +3322,106 @@ const CONFIGURED_API_BASE = "https://alloggi-api.rikspa14.workers.dev";
         colorHex: getReviewerColorMeta(author).hex,
         stars: Math.max(0, Math.min(5, Number(reviewsMap[author].stars) || 0)),
         comment: String(reviewsMap[author].comment || ""),
+        favorite: Boolean(reviewsMap[author].favorite),
         updatedAt: reviewsMap[author].updatedAt || ""
       }));
-    const rated = entries.filter(e => e.stars > 0);
+    const visibleEntries = (viewColor === "ALL") ? entries : entries.filter(e => e.author === viewColor);
+    const rated = visibleEntries.filter(e => e.stars > 0);
     const avgRaw = rated.length ? (rated.reduce((s, e) => s + e.stars, 0) / rated.length) : 0;
     const avgStars = avgRaw > 0 ? Math.round(avgRaw * 10) / 10 : 0;
     const stars = Math.round(avgStars);
-    const myEntry = activeReviewer && reviewsMap[activeReviewer] ? reviewsMap[activeReviewer] : { stars: 0, comment: "" };
+    const isVisibleFav = visibleEntries.some(e => e.favorite);
+    const favColors = entries.filter(e => e.favorite);
+    const myEntry = activeReviewer && reviewsMap[activeReviewer] ? reviewsMap[activeReviewer] : { stars: 0, comment: "", favorite: false };
     const combinedComment = entries.filter(e => e.comment.trim()).map(e => e.comment.trim()).join(" ");
     return {
       state,
       reviews: reviewsMap,
       entries,
+      visibleEntries,
       ratedCount: rated.length,
       avgStars,
       stars,
+      isVisibleFav,
+      favColors,
       myStars: Number(myEntry.stars) || 0,
       myComment: String(myEntry.comment || ""),
+      myFavorite: Boolean(myEntry.favorite),
       comment: combinedComment
     };
   }
 
-  function upsertAuthorReviewLocal(id, author, stars, comment) {
+  function applyExclusiveFavoriteLocally(id, author, isFav) {
+    if (isFav) {
+      Object.keys(userReviews).forEach(lid => {
+        if (lid !== id && userReviews[lid] && userReviews[lid].reviews && userReviews[lid].reviews[author]) {
+          userReviews[lid].reviews[author].favorite = false;
+          const r = userReviews[lid].reviews[author];
+          if ((Number(r.stars) || 0) === 0 && !String(r.comment || "").trim()) {
+            delete userReviews[lid].reviews[author];
+            if (Object.keys(userReviews[lid].reviews).length === 0 && (userReviews[lid].state || "active") === "active") {
+              delete userReviews[lid];
+            }
+          }
+        }
+      });
+    }
+    const cur = userReviews[id] ? { state: userReviews[id].state || "active", reviews: { ...(userReviews[id].reviews || {}) } } : { state: "active", reviews: {} };
+    const prev = cur.reviews[author] || { stars: 0, comment: "" };
+    if (!isFav && (Number(prev.stars) || 0) === 0 && !String(prev.comment || "").trim()) {
+      delete cur.reviews[author];
+    } else {
+      cur.reviews[author] = {
+        stars: Number(prev.stars) || 0,
+        comment: String(prev.comment || ""),
+        favorite: Boolean(isFav),
+        updatedAt: new Date().toISOString()
+      };
+    }
+    if (Object.keys(cur.reviews).length === 0 && cur.state === "active") {
+      delete userReviews[id];
+    } else {
+      userReviews[id] = cur;
+    }
+  }
+
+  async function toggleAuthorFavorite(id, colorId) {
+    const author = colorId || ensureActiveReviewer();
+    if (!author) return;
+    const prevFav = Boolean(userReviews[id] && userReviews[id].reviews && userReviews[id].reviews[author] && userReviews[id].reviews[author].favorite);
+    const nextFav = !prevFav;
+    if (HAS_REMOTE_API) {
+      try {
+        const res = await fetch(`${API_BASE}/api/reviews`, { cache: "no-store" });
+        if (res.ok) userReviews = normalizeReviewsMap(await res.json());
+      } catch (e) {}
+    }
+    applyExclusiveFavoriteLocally(id, author, nextFav);
+    saveUserReviews();
+    refreshAllVisibleUi();
+    pushSharedUpdate({ action: "replace_all", data: userReviews });
+  }
+
+  function upsertAuthorReviewLocal(id, author, stars, comment, favoriteOverride) {
     const cleanAuthor = String(author || "").trim().slice(0, 40);
     if (!cleanAuthor) return;
     const cur = userReviews[id] ? { state: userReviews[id].state || "active", reviews: { ...(userReviews[id].reviews || {}) } } : { state: "active", reviews: {} };
+    const prevFav = Boolean(cur.reviews[cleanAuthor] && cur.reviews[cleanAuthor].favorite);
+    const fav = (favoriteOverride !== undefined) ? Boolean(favoriteOverride) : prevFav;
     const st = Math.max(0, Math.min(5, Number(stars) || 0));
     const cm = String(comment || "").slice(0, 2000);
+    if (fav) {
+      applyExclusiveFavoriteLocally(id, cleanAuthor, true);
+      userReviews[id].reviews[cleanAuthor].stars = st;
+      userReviews[id].reviews[cleanAuthor].comment = cm;
+      saveUserReviews();
+      pushSharedUpdate({ action: "replace_all", data: userReviews });
+      return;
+    }
     if (st === 0 && !cm.trim()) {
       delete cur.reviews[cleanAuthor];
     } else {
-      cur.reviews[cleanAuthor] = { stars: st, comment: cm, updatedAt: new Date().toISOString() };
+      cur.reviews[cleanAuthor] = { stars: st, comment: cm, favorite: false, updatedAt: new Date().toISOString() };
     }
     if (Object.keys(cur.reviews).length === 0 && cur.state === "active") {
       delete userReviews[id];
@@ -3291,7 +3446,9 @@ const CONFIGURED_API_BASE = "https://alloggi-api.rikspa14.workers.dev";
 
   function getBaseZIndex(id) {
     if (id === activeListingId) return 3000;
-    return getReview(id).state === "hidden" ? 600 : 1200;
+    const r = getReview(id);
+    if (r.state === "hidden") return 600;
+    return r.isVisibleFav ? 1600 : 1200;
   }
 
   function getStarColor(stars) {
@@ -3322,16 +3479,18 @@ const CONFIGURED_API_BASE = "https://alloggi-api.rikspa14.workers.dev";
 
   function buildPinHtml(item) {
     const { color: pinColor } = getPlatformMeta(item.platform);
-    const { avgStars, stars, state } = getReview(item.id);
+    const { avgStars, stars, state, isVisibleFav } = getReview(item.id);
     const starColor = getStarColor(stars);
     const pinLabel = avgStars > 0 ? String(avgStars) : "–";
     const pinFontSize = pinLabel.length > 1 ? "9.2" : "11.5";
     const isSelected = (item.id === activeListingId);
     const isHidden = (state === "hidden");
     const ringStroke = stars > 0 ? `stroke="${starColor}" stroke-width="1.3"` : "";
+    const medalHtml = isVisibleFav ? `<div class="pin-medal-badge">🏅</div>` : "";
     return `
       <div class="apple-pin-offset" id="pin-offset-${item.id}">
-        <div class="apple-pin-wrap ${isSelected ? 'selected' : ''} ${isHidden ? 'is-hidden' : ''}" id="pin-marker-${item.id}">
+        <div class="apple-pin-wrap ${isSelected ? 'selected' : ''} ${isHidden ? 'is-hidden' : ''}" id="pin-marker-${item.id}" style="position:relative;">
+          ${medalHtml}
           <svg width="30" height="40" viewBox="0 0 30 40" fill="none" xmlns="http://www.w3.org/2000/svg">
             <ellipse cx="15" cy="38" rx="5.5" ry="1.8" fill="rgba(0,0,0,0.3)"/>
             <path d="M 15 2 C 7.82 2 2 7.82 2 15 C 2 24.5 15 37.5 15 37.5 C 15 37.5 28 24.5 28 15 C 28 7.82 22.18 2 15 2 Z" fill="${pinColor}" stroke="#ffffff" stroke-width="2" stroke-linejoin="round"/>
@@ -3345,16 +3504,17 @@ const CONFIGURED_API_BASE = "https://alloggi-api.rikspa14.workers.dev";
 
   function buildTooltipHtml(item) {
     const { color: pinColor } = getPlatformMeta(item.platform);
-    const { avgStars, ratedCount, entries, state } = getReview(item.id);
+    const { avgStars, ratedCount, visibleEntries, state } = getReview(item.id);
     const starColor = getStarColor(avgStars);
     const roomsTxt = `${item.availableRooms} ${item.availableRooms === 1 ? 'stanza' : 'stanze'}`;
-    const starPart = avgStars > 0 ? ` · <span style="color:${starColor}">★ ${avgStars}/5 (${ratedCount})</span>` : "";
+    const starPart = avgStars > 0 ? ` · <span style="color:${starColor}">★ ${avgStars}/5${viewColor === 'ALL' && ratedCount > 1 ? ' (' + ratedCount + ')' : ''}</span>` : "";
     const statePart = state === "hidden" ? ` · <span style="color:#a5b4fc">(Nascosto)</span>` : "";
-    const commentsPart = entries.map(e => {
+    const commentsPart = visibleEntries.map(e => {
       const st = e.stars > 0 ? `★${e.stars}` : "☆";
+      const fav = e.favorite ? " 🏅" : "";
       const cm = e.comment.trim() ? `: ${escapeHtml(e.comment.trim().slice(0, 55))}${e.comment.trim().length > 55 ? "…" : ""}` : "";
       const dot = `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${e.colorHex};margin-right:4px;vertical-align:middle"></span>`;
-      return `<br><span style="opacity:0.95;font-size:10.5px">${dot}<b>${st}</b>${cm}</span>`;
+      return `<br><span style="opacity:0.95;font-size:10.5px">${dot}<b>${st}${fav}</b>${cm}</span>`;
     }).join("");
     return `<b>${escapeHtml(item.title.split(" - ")[0])}</b><br><span style="color:#ffffff;font-weight:700">${escapeHtml(item.price)}</span> · <span style="color:${pinColor}">${escapeHtml(item.platform)}</span> · ${roomsTxt}${starPart}${statePart}${commentsPart}`;
   }
@@ -3569,6 +3729,12 @@ const CONFIGURED_API_BASE = "https://alloggi-api.rikspa14.workers.dev";
     if (row) row.innerHTML = renderDraftStarRowHtml(id, draftNewStars[id]);
   }
 
+  function toggleDraftFav(id) {
+    draftNewFav[id] = !draftNewFav[id];
+    const btn = document.getElementById("new-review-fav-" + id);
+    if (btn) btn.classList.toggle("active", Boolean(draftNewFav[id]));
+  }
+
   function submitNewReview(id) {
     const txt = document.getElementById("new-review-comment-" + id);
     const colorId = draftNewColor[id] || activeReviewer;
@@ -3580,14 +3746,16 @@ const CONFIGURED_API_BASE = "https://alloggi-api.rikspa14.workers.dev";
     }
     const stars = draftNewStars[id] || 0;
     const comment = txt ? txt.value : "";
-    if (stars === 0 && !comment.trim()) {
-      alert("Inserisci almeno le stelle o un commento.");
+    const isFav = Boolean(draftNewFav[id]);
+    if (stars === 0 && !comment.trim() && !isFav) {
+      alert("Inserisci almeno le stelle, un commento o la medaglia.");
       return;
     }
     activeReviewer = colorId;
     try { localStorage.setItem(REVIEWER_KEY, colorId); } catch (e) {}
     draftNewStars[id] = 0;
-    upsertAuthorReviewLocal(id, colorId, stars, comment);
+    draftNewFav[id] = false;
+    upsertAuthorReviewLocal(id, colorId, stars, comment, isFav ? true : undefined);
     refreshAllVisibleUi();
   }
 
@@ -3941,16 +4109,20 @@ const CONFIGURED_API_BASE = "https://alloggi-api.rikspa14.workers.dev";
         const cleanType = item.typeLabel.replace(/\s*\(\d+\)/, "");
         const roomsTxt = `${item.availableRooms} ${item.availableRooms === 1 ? 'stanza disp.' : 'stanze disp.'}`;
         const previewText = item.bedType ? `${item.bedType} · ${item.floor || 'Piano intermedio'}` : (item.notes || "");
-        const countSuffix = rev.ratedCount > 1 ? ` (${rev.ratedCount})` : "";
+        const countSuffix = (viewColor === "ALL" && rev.ratedCount > 1) ? ` (${rev.ratedCount})` : "";
+        const favBadgeHtml = rev.isVisibleFav
+          ? `<span class="pin-badge" style="background:#f59e0b">🏅 Preferita</span>`
+          : "";
         const ratingBadgeHtml = rev.avgStars > 0
           ? `<span class="pin-badge" style="background:${starColor}">★ ${rev.avgStars}/5${countSuffix}</span>`
           : `<span class="pin-badge" style="background:rgba(29,29,31,0.68)">☆ –</span>`;
-        const familyCommentsHtml = rev.entries.length > 0
-          ? `<div class="card-family-reviews">${rev.entries.map(e => {
+        const familyCommentsHtml = rev.visibleEntries.length > 0
+          ? `<div class="card-family-reviews">${rev.visibleEntries.map(e => {
               const eCol = getStarColor(e.stars);
               const sTxt = e.stars > 0 ? `<span class="family-star-tag" style="color:${eCol}">★${e.stars}</span>` : "";
+              const fTxt = e.favorite ? `<span style="margin-right:4px">🏅</span>` : "";
               const cTxt = e.comment.trim() ? escapeHtml(e.comment.trim()) : "";
-              return `<div class="family-mini-row" style="border-left-color:${e.colorHex}"><span class="color-dot-inline" style="background:${e.colorHex};margin-top:3px"></span><span class="family-mini-body">${sTxt}${cTxt}</span></div>`;
+              return `<div class="family-mini-row" style="border-left-color:${e.colorHex}"><span class="color-dot-inline" style="background:${e.colorHex};margin-top:3px"></span><span class="family-mini-body">${fTxt}${sTxt}${cTxt}</span></div>`;
             }).join("")}</div>`
           : "";
 
@@ -3959,6 +4131,7 @@ const CONFIGURED_API_BASE = "https://alloggi-api.rikspa14.workers.dev";
             <div class="card-photo-wrap">
               <img class="card-img" src="${item.photoUrl}" alt="${item.title}" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=600&q=80'">
               <div class="card-badge-top-left">
+                ${favBadgeHtml}
                 ${ratingBadgeHtml}
                 <span class="plat-badge ${platClass}">${item.platform}</span>
               </div>
@@ -3991,7 +4164,7 @@ const CONFIGURED_API_BASE = "https://alloggi-api.rikspa14.workers.dev";
               </div>
               ${item.priceDiscrepancy ? `<div style="font-size:11px;color:#92400e;background:#fef3c7;border:1px solid #fcd34d;border-radius:6px;padding:4px 7px;margin-top:4px;line-height:1.3;">${escapeHtml(item.priceDiscrepancy)}</div>` : ''}
               <div class="card-rating-row" onclick="event.stopPropagation()">
-                <div class="star-row" title="${activeReviewer ? 'Vota con questo colore' : 'Scegli un colore in alto per votare'}"><span class="color-dot-inline" style="background:${activeReviewer ? getReviewerColorMeta(activeReviewer).hex : '#cbd5e1'};margin-right:4px"></span>${renderStarRowHtml(item.id, rev.myStars, false)}</div>
+                <div class="star-row" title="${activeReviewer ? 'Vota con questo colore' : 'Scegli un colore in alto per votare'}"><span class="color-dot-inline" style="background:${activeReviewer ? getReviewerColorMeta(activeReviewer).hex : '#cbd5e1'};margin-right:4px"></span>${renderStarRowHtml(item.id, rev.myStars, false)}<button type="button" class="medal-btn ${rev.myFavorite ? 'active' : ''}" style="margin-left:5px;" title="Segna come preferita (medaglia)" onclick="event.stopPropagation(); toggleAuthorFavorite('${item.id}')">🏅</button></div>
                 <div class="card-actions-bar">
                   ${renderCardActionsHtml(item.id, rev.state)}
                 </div>
@@ -4024,12 +4197,13 @@ const CONFIGURED_API_BASE = "https://alloggi-api.rikspa14.workers.dev";
         const starBadge = rev.avgStars > 0
           ? `<span class="rating-score-pill" style="color:${rStarColor};background:${rStarColor}15">★ ${rev.avgStars}</span>`
           : "";
-        const rFamilyHtml = rev.entries.length > 0
-          ? `<div class="card-family-reviews">${rev.entries.map(e => {
+        const rFamilyHtml = rev.visibleEntries.length > 0
+          ? `<div class="card-family-reviews">${rev.visibleEntries.map(e => {
               const eCol = getStarColor(e.stars);
               const sTxt = e.stars > 0 ? `<span class="family-star-tag" style="color:${eCol}">★${e.stars}</span>` : "";
+              const fTxt = e.favorite ? `<span style="margin-right:4px">🏅</span>` : "";
               const cTxt = e.comment.trim() ? escapeHtml(e.comment.trim()) : "";
-              return `<div class="family-mini-row" style="border-left-color:${e.colorHex}"><span class="color-dot-inline" style="background:${e.colorHex};margin-top:3px"></span><span class="family-mini-body">${sTxt}${cTxt}</span></div>`;
+              return `<div class="family-mini-row" style="border-left-color:${e.colorHex}"><span class="color-dot-inline" style="background:${e.colorHex};margin-top:3px"></span><span class="family-mini-body">${fTxt}${sTxt}${cTxt}</span></div>`;
             }).join("")}</div>`
           : "";
 
@@ -4038,6 +4212,7 @@ const CONFIGURED_API_BASE = "https://alloggi-api.rikspa14.workers.dev";
             <div class="group-room-top">
               <span class="group-room-name">${escapeHtml(roomLabel)}</span>
               <div class="group-room-right">
+                ${rev.isVisibleFav ? '<span title="Preferita">🏅</span>' : ''}
                 ${starBadge}
                 <span class="card-type-pill">${cleanType}</span>
                 <span class="group-room-price">${room.price}</span>
@@ -4046,7 +4221,7 @@ const CONFIGURED_API_BASE = "https://alloggi-api.rikspa14.workers.dev";
             <div class="group-room-sub">${room.bedType || 'Camera arredata'} · <strong>Senza utenze:</strong> ${escapeHtml(room.basePrice || room.price)} · <strong>Utenze:</strong> ${escapeHtml(room.utilities || room.priceDetails)}</div>
             ${room.priceDiscrepancy ? `<div style="font-size:10.5px;color:#92400e;background:#fef3c7;border:1px solid #fcd34d;border-radius:6px;padding:3px 6px;margin-bottom:4px;line-height:1.3;">${escapeHtml(room.priceDiscrepancy)}</div>` : ''}
             <div class="group-room-footer" onclick="event.stopPropagation()">
-              <div class="star-row"><span class="color-dot-inline" style="background:${activeReviewer ? getReviewerColorMeta(activeReviewer).hex : '#cbd5e1'};margin-right:4px"></span>${renderStarRowHtml(room.id, rev.myStars, false)}</div>
+              <div class="star-row"><span class="color-dot-inline" style="background:${activeReviewer ? getReviewerColorMeta(activeReviewer).hex : '#cbd5e1'};margin-right:4px"></span>${renderStarRowHtml(room.id, rev.myStars, false)}<button type="button" class="medal-btn ${rev.myFavorite ? 'active' : ''}" style="margin-left:5px;" title="Segna come preferita (medaglia)" onclick="event.stopPropagation(); toggleAuthorFavorite('${room.id}')">🏅</button></div>
               <div class="card-actions-bar">
                 ${renderCardActionsHtml(room.id, rev.state)}
               </div>
@@ -4147,6 +4322,7 @@ const CONFIGURED_API_BASE = "https://alloggi-api.rikspa14.workers.dev";
                 <span style="display:inline-flex;align-items:center;gap:7px;">
                   <span class="color-dot-inline" style="width:14px;height:14px;background:${e.colorHex}"></span>
                   <span class="rating-score-pill" style="${e.stars > 0 ? `color:${eColor};background:${eColor}15` : ''}">${e.stars > 0 ? `${e.stars}/5 stelle` : 'Solo nota'}</span>
+                  <button type="button" class="medal-btn ${e.favorite ? 'active' : ''}" title="Segna come preferita per questo colore" onclick="toggleAuthorFavorite('${item.id}', '${e.author}')">🏅${e.favorite ? ' Preferita' : ''}</button>
                 </span>
                 <button type="button" class="family-review-del" onclick="deleteAuthorReviewByEnc('${item.id}', '${encAuthor}')">Elimina</button>
               </div>
@@ -4246,7 +4422,7 @@ const CONFIGURED_API_BASE = "https://alloggi-api.rikspa14.workers.dev";
             </div>
             <div class="review-controls-row" style="margin-bottom:8px;">
               <div class="star-row" id="new-review-stars-${item.id}">${renderDraftStarRowHtml(item.id, currentDraftStars)}</div>
-              <span style="font-size:11.5px;color:#0369a1;font-weight:600;">Tocca le stelle</span>
+              <button type="button" id="new-review-fav-${item.id}" class="medal-btn ${draftNewFav[item.id] ? 'active' : ''}" onclick="toggleDraftFav('${item.id}')" title="Segna come preferita">🏅 Preferita</button>
             </div>
             <textarea id="new-review-comment-${item.id}" class="review-textarea" style="min-height:58px;" placeholder="Scrivi qui il tuo parere sulla casa..."></textarea>
             <button type="button" class="add-review-save-btn" onclick="submitNewReview('${item.id}')">Salva valutazione</button>
