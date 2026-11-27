@@ -2246,6 +2246,168 @@ svg.leaflet-image-layer.leaflet-interactive path {
       box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
     }
 
+    .leaderboard-fab-btn {
+      position: fixed;
+      top: 62px;
+      right: 16px;
+      z-index: 1200;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 13px;
+      background: rgba(255, 255, 255, 0.94);
+      backdrop-filter: blur(18px) saturate(180%);
+      -webkit-backdrop-filter: blur(18px) saturate(180%);
+      border: 1px solid rgba(0, 0, 0, 0.08);
+      border-radius: 999px;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.14);
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-main);
+      cursor: pointer;
+      transition: transform 0.12s ease, box-shadow 0.15s ease;
+    }
+    .leaderboard-fab-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18); }
+    .leaderboard-fab-btn:active { transform: scale(0.97); }
+    @media (max-width: 768px) {
+      .leaderboard-fab-btn {
+        top: 116px;
+        right: 12px;
+        padding: 6px 11px;
+        font-size: 11.5px;
+      }
+    }
+
+    .leaderboard-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 2600;
+      background: rgba(0, 0, 0, 0.42);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .leaderboard-modal.hidden { display: none; }
+    .leaderboard-card {
+      width: 100%;
+      max-width: 470px;
+      max-height: 82vh;
+      background: #ffffff;
+      border-radius: 20px;
+      box-shadow: 0 22px 54px rgba(0, 0, 0, 0.28);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .leaderboard-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 16px 18px 12px;
+      border-bottom: 1px solid #eceef2;
+    }
+    .leaderboard-title { font-size: 17px; font-weight: 800; color: #1d1d1f; margin: 0; }
+    .leaderboard-sub { font-size: 11.5px; color: #6e6e73; margin-top: 2px; }
+    .leaderboard-close {
+      border: none;
+      background: #f2f2f7;
+      color: #3a3a3c;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .leaderboard-list {
+      overflow-y: auto;
+      padding: 8px 12px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .leaderboard-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 14px;
+      border: 1px solid #eceef2;
+      background: #fafafa;
+      cursor: pointer;
+      transition: background 0.12s ease, border-color 0.12s ease;
+    }
+    .leaderboard-row:hover { background: #f2f6ff; border-color: #c7dcff; }
+    .lb-rank {
+      min-width: 28px;
+      height: 28px;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 800;
+      background: #e5e5ea;
+      color: #1d1d1f;
+      flex-shrink: 0;
+    }
+    .lb-rank.top-1 { background: #fef08a; color: #854d0e; }
+    .lb-rank.top-2 { background: #e2e8f0; color: #334155; }
+    .lb-rank.top-3 { background: #fed7aa; color: #9a3412; }
+    .lb-info { flex: 1; min-width: 0; }
+    .lb-name {
+      font-size: 13.5px;
+      font-weight: 700;
+      color: #1d1d1f;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .lb-meta {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 3px;
+      font-size: 11.5px;
+      color: #6e6e73;
+    }
+    .lb-voters { display: inline-flex; align-items: center; gap: 3px; }
+    .lb-voter-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+      font-size: 11px;
+      font-weight: 600;
+      color: #3a3a3c;
+    }
+    .lb-voter-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+    .lb-score-box {
+      text-align: right;
+      flex-shrink: 0;
+    }
+    .lb-score-main {
+      font-size: 15px;
+      font-weight: 800;
+      color: #1d1d1f;
+    }
+    .lb-score-count {
+      font-size: 11.5px;
+      font-weight: 600;
+      color: #6e6e73;
+    }
+
     .apple-fab {
       position: absolute;
       top: 16px;
@@ -2619,6 +2781,23 @@ svg.leaflet-image-layer.leaflet-interactive path {
       <div class="apple-segmented">
         <button class="seg-btn" data-map-mode="streets" onclick="setMapMode('streets')">Mappa</button>
         <button class="seg-btn active" data-map-mode="satellite" onclick="setMapMode('satellite')">Satellite</button>
+      </div>
+    </div>
+
+    <!-- Right Floating Leaderboard Button -->
+    <button id="leaderboard-fab-btn" class="leaderboard-fab-btn" type="button" onclick="openLeaderboardModal()" title="Classifica dei voti più alti">🏆 Classifica</button>
+
+    <!-- Leaderboard Modal -->
+    <div id="leaderboard-modal" class="leaderboard-modal hidden" onclick="closeLeaderboardModal(event)">
+      <div class="leaderboard-card" onclick="event.stopPropagation()">
+        <div class="leaderboard-header">
+          <div>
+            <h3 class="leaderboard-title">🏆 Classifica Voti</h3>
+            <div class="leaderboard-sub">Media di tutti i voti dati (preferita 🏅 = +0,5)</div>
+          </div>
+          <button type="button" class="leaderboard-close" onclick="closeLeaderboardModal()" aria-label="Chiudi">✕</button>
+        </div>
+        <div id="leaderboard-list" class="leaderboard-list"></div>
       </div>
     </div>
 
@@ -3402,6 +3581,87 @@ const CONFIGURED_API_BASE = "https://alloggi-api.rikspa14.workers.dev";
       myFavorite: Boolean(myEntry.favorite),
       comment: combinedComment
     };
+  }
+
+  function computeLeaderboardItems() {
+    if (!Array.isArray(listingsData)) return [];
+    const items = [];
+    for (const item of listingsData) {
+      const r = getReview(item.id);
+      if (r.state !== "active") continue;
+      const ratedEntries = r.entries.filter(e => e.stars > 0);
+      const favCount = r.entries.filter(e => e.favorite).length;
+      if (ratedEntries.length === 0 && favCount === 0) continue;
+      const totalVotes = ratedEntries.length;
+      const sumScore = ratedEntries.reduce((acc, e) => acc + e.stars + (e.favorite ? 0.5 : 0), 0);
+      const avgScore = totalVotes > 0 ? (sumScore / totalVotes) : (favCount * 0.5);
+      items.push({
+        item,
+        avgScore,
+        totalVotes,
+        favCount,
+        entries: r.entries.filter(e => e.stars > 0 || e.favorite)
+      });
+    }
+    items.sort((a, b) =>
+      b.avgScore - a.avgScore ||
+      b.totalVotes - a.totalVotes ||
+      b.favCount - a.favCount ||
+      (a.item.price || 9999) - (b.item.price || 9999)
+    );
+    return items;
+  }
+
+  function openLeaderboardModal() {
+    const modal = document.getElementById("leaderboard-modal");
+    const listEl = document.getElementById("leaderboard-list");
+    if (!modal || !listEl) return;
+    const ranked = computeLeaderboardItems();
+    if (ranked.length === 0) {
+      listEl.innerHTML = `<div style="padding:24px;text-align:center;color:#6e6e73;font-size:13px;">Nessun voto registrato finora.</div>`;
+    } else {
+      listEl.innerHTML = ranked.map((entry, idx) => {
+        const rank = idx + 1;
+        const rankCls = rank <= 3 ? `top-${rank}` : "";
+        const scoreStr = entry.avgScore.toFixed(2).replace(/\.00$/, "").replace(/(\.\d)0$/, "$1").replace(".", ",");
+        const countLabel = entry.totalVotes === 1 ? "1 voto" : `${entry.totalVotes} voti`;
+        const votersHtml = entry.entries.map(v => {
+          const starPart = v.stars > 0 ? `${v.stars}★` : "";
+          const favPart = v.favorite ? "🏅" : "";
+          return `<span class="lb-voter-chip"><span class="lb-voter-dot" style="background:${v.colorHex}"></span>${starPart}${favPart}</span>`;
+        }).join("");
+        return `
+          <div class="leaderboard-row" onclick="pickLeaderboardListing('${entry.item.id}')">
+            <span class="lb-rank ${rankCls}">#${rank}</span>
+            <div class="lb-info">
+              <div class="lb-name">${escapeHtml(entry.item.title || entry.item.address || entry.item.id)}</div>
+              <div class="lb-meta">
+                <span>${entry.item.price ? entry.item.price + " €" : "—"}</span>
+                <span>·</span>
+                <span class="lb-voters">${votersHtml}</span>
+              </div>
+            </div>
+            <div class="lb-score-box">
+              <div class="lb-score-main">${scoreStr} ★</div>
+              <div class="lb-score-count">(${countLabel})</div>
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+    modal.classList.remove("hidden");
+  }
+
+  function closeLeaderboardModal(event) {
+    if (event && event.target && event.target.id !== "leaderboard-modal") return;
+    const modal = document.getElementById("leaderboard-modal");
+    if (modal) modal.classList.add("hidden");
+  }
+
+  function pickLeaderboardListing(id) {
+    const modal = document.getElementById("leaderboard-modal");
+    if (modal) modal.classList.add("hidden");
+    selectListing(id, true);
   }
 
   function applyExclusiveFavoriteLocally(id, author, isFav) {
